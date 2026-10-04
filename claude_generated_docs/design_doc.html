@@ -1,0 +1,1069 @@
+<title>Pi Harness Design Doc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+:root {
+  /* Layout: technical spec sheet. Sticky section index on wide screens, ~44rem reading column, diagrams span the full main column. */
+  --paper: #f3f5f6;
+  --surface: #ffffff;
+  --sunken: #e8edf0;
+  --ink: #16212b;
+  --muted: #5a6773;
+  --rule: #d2dae0;
+  --accent: #1d5ab5;
+  /* One hue per package, used the same way in text, tables and diagrams */
+  --c-ai: #0c7a71;
+  --c-agent: #5847c4;
+  --c-coding: #a95b05;
+  --c-tui: #bb3150;
+  --c-exp: #66727e;
+  --term-bg: #121920;
+  --term-fg: #d5dce2;
+  --term-dim: #7d8a96;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d1318; --surface: #131b22; --sunken: #19232c; --ink: #e1e7ec; --muted: #95a2ad; --rule: #27333d; --accent: #7eaaff;
+    --c-ai: #3cc2b5; --c-agent: #a99cff; --c-coding: #efa34e; --c-tui: #ff7f95; --c-exp: #8f9ba6;
+    --term-bg: #080c10; --term-fg: #d5dce2; --term-dim: #6f7c88;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d1318; --surface: #131b22; --sunken: #19232c; --ink: #e1e7ec; --muted: #95a2ad; --rule: #27333d; --accent: #7eaaff;
+  --c-ai: #3cc2b5; --c-agent: #a99cff; --c-coding: #efa34e; --c-tui: #ff7f95; --c-exp: #8f9ba6;
+  --term-bg: #080c10; --term-fg: #d5dce2; --term-dim: #6f7c88;
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); padding-block: 0 72px; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+p { margin: 0 0 1em; }
+strong { font-weight: 600; }
+code { font-family: var(--mono); font-size: .82em; background: var(--sunken); padding: .08em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+pre { font-family: var(--mono); font-size: 13px; line-height: 1.55; background: var(--sunken); padding: 16px 18px; border-radius: 6px; overflow-x: auto; max-width: 100%; margin: 16px 0 24px; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+pre .cm { color: var(--muted); }
+
+/* Package colour keys */
+.k-ai { --k: var(--c-ai); } .k-agent { --k: var(--c-agent); } .k-coding { --k: var(--c-coding); } .k-tui { --k: var(--c-tui); } .k-exp { --k: var(--c-exp); }
+.pkg { font-family: var(--mono); font-size: .8em; color: var(--k); background: color-mix(in oklab, var(--k) 11%, transparent); border: 1px solid color-mix(in oklab, var(--k) 38%, transparent); padding: .05em .45em; border-radius: 4px; white-space: nowrap; }
+
+/* Masthead */
+.masthead { padding-block: 56px 36px; border-bottom: 1.5px solid var(--ink); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-family: var(--display); font-stretch: 72%; font-weight: 800; font-size: clamp(2.8rem, 8vw, 5rem); line-height: .95; letter-spacing: -.01em; margin: .25em 0 .3em; text-wrap: balance; }
+.dek { font-size: 1.2rem; line-height: 1.55; max-width: 40rem; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 14px 32px; margin: 28px 0 0; }
+.meta div { min-width: 0; }
+.meta dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.meta dd { margin: 2px 0 0; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* Page grid */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 28px; }
+.toc { min-width: 0; }
+.toc p { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.toc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.toc a { display: flex; gap: 8px; align-items: baseline; font-family: var(--display); font-stretch: 88%; font-size: 14.5px; color: var(--ink); text-decoration: none; padding: 3px 0; }
+.toc a:hover { color: var(--accent); }
+.toc .n { font-family: var(--mono); font-size: 11.5px; color: var(--muted); min-width: 1.6em; }
+main { min-width: 0; }
+@media (min-width: 1100px) {
+  .layout { grid-template-columns: 210px minmax(0, 1fr); gap: 56px; }
+  .toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; padding-top: 30px; }
+  .toc ol { display: block; }
+}
+
+/* Sections and type */
+section { padding-block: 52px 8px; border-top: 1px solid var(--rule); scroll-margin-top: 16px; }
+section:first-of-type { border-top: none; padding-top: 24px; }
+h2 { font-family: var(--display); font-stretch: 80%; font-weight: 750; font-size: clamp(1.75rem, 3.4vw, 2.4rem); line-height: 1.08; margin: 0 0 .6em; text-wrap: balance; display: flex; flex-wrap: wrap; gap: .25em .55em; align-items: baseline; }
+h2 .num { font-family: var(--mono); font-size: .42em; font-weight: 500; color: var(--muted); letter-spacing: .04em; }
+h2 .pkg { font-size: .4em; font-weight: 500; }
+h3 { font-family: var(--display); font-stretch: 88%; font-weight: 700; font-size: 1.22rem; line-height: 1.25; margin: 2em 0 .5em; text-wrap: balance; }
+.prose > p, .prose > ul, .prose > ol, .prose > h3, .prose > dl { max-width: 44rem; }
+.prose ul { padding-left: 1.2em; margin: 0 0 1em; }
+.prose li { margin-bottom: .35em; }
+.label { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 30px 0 4px; }
+
+/* Legend */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 15px; }
+
+/* Layer cards (section 1 only) */
+.layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin: 22px 0 30px; }
+.layer { min-width: 0; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--rule); border-top: 3px solid var(--k); border-radius: 4px; }
+.layer b { font-family: var(--mono); color: var(--k); font-size: 14px; }
+.layer p { margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
+
+/* Sequenced steps */
+.steps { list-style: none; padding: 0; margin: 8px 0 24px; counter-reset: s; max-width: 44rem; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 2.3rem minmax(0, 1fr); margin-bottom: 12px; }
+.steps li::before { content: counter(s, decimal-leading-zero); font-family: var(--mono); font-size: 12.5px; color: var(--muted); padding-top: 4px; }
+
+/* Rationale blocks: a file-tab label above a tinted panel */
+.why { --k: var(--ink); position: relative; margin: 50px 0 32px; padding: 20px 22px 14px; background: color-mix(in oklab, var(--k) 7%, var(--surface)); border: 1px solid color-mix(in oklab, var(--k) 32%, var(--rule)); border-radius: 0 8px 8px 8px; max-width: 46rem; font-size: 16px; }
+.why::before { content: "why it is built this way"; position: absolute; left: -1px; top: -25px; height: 25px; line-height: 25px; padding: 0 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--paper); background: var(--k); border-radius: 6px 6px 0 0; }
+.why ul { margin: 0 0 .6em; padding-left: 1.15em; }
+.why li { margin-bottom: .5em; }
+.why p:last-child, .why ul:last-child { margin-bottom: 0; }
+
+.note { margin: 28px 0; padding: 16px 20px; background: var(--sunken); border-radius: 8px; max-width: 46rem; font-size: 16px; }
+.note .tag { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--c-agent); margin-bottom: 4px; }
+.note p:last-child { margin-bottom: 0; }
+
+/* Tables */
+.tablewrap { overflow-x: auto; margin: 10px 0 26px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; line-height: 1.45; }
+th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); text-align: left; font-weight: 600; border-bottom: 1.5px solid var(--ink); padding: 8px 14px 8px 0; white-space: nowrap; }
+td { border-bottom: 1px solid var(--rule); padding: 9px 14px 9px 0; vertical-align: top; }
+td.num, th.num { text-align: right; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }
+td.path { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+td.path .pkg { font-size: 12px; }
+.status { font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.status.core { color: var(--c-coding); }
+.status.support { color: var(--c-ai); }
+.status.exp { color: var(--muted); }
+
+/* Figures */
+figure { margin: 28px 0 34px; }
+.figwrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; }
+figcaption { font-size: 14.5px; line-height: 1.55; color: var(--muted); margin-top: 10px; max-width: 50rem; }
+figcaption b { color: var(--ink); font-family: var(--display); font-stretch: 88%; font-weight: 700; }
+
+/* Inline SVG diagrams */
+.d { display: block; width: 100%; height: auto; min-width: 720px; color: var(--ink); }
+.d text { font-family: var(--mono); font-size: 12px; fill: var(--ink); }
+.d .t-s { font-size: 10.5px; fill: var(--muted); }
+.d .t-b { font-weight: 700; }
+.d .t-cap { font-size: 10px; letter-spacing: .08em; fill: var(--muted); }
+.d .bx { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.d .pk { fill: color-mix(in oklab, var(--k) 13%, var(--surface)); stroke: var(--k); stroke-width: 1.5; }
+.d .pk-name { fill: var(--k); font-weight: 700; }
+.d .ghost { fill: var(--sunken); stroke: var(--muted); stroke-width: 1.1; stroke-dasharray: 5 4; }
+.d .faded { fill: var(--sunken); stroke: var(--rule); stroke-width: 1.2; }
+.d .faded-t { fill: var(--muted); }
+.d .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+.d .ln-b { stroke-width: 2.4; }
+.d .ln-m { stroke: var(--muted); stroke-width: 1.2; fill: none; }
+.d .dash { stroke-dasharray: 5 4; }
+.d .dot { stroke-dasharray: 2 3; }
+.d .life { stroke: var(--rule); stroke-width: 1.3; stroke-dasharray: 3 4; fill: none; }
+.d .frame { fill: none; stroke: var(--muted); stroke-width: 1.1; stroke-dasharray: 6 4; }
+.d .tab { fill: var(--sunken); stroke: var(--muted); stroke-width: 1.1; }
+.d .mk { fill: var(--ink); }
+.d .mk-m { fill: var(--muted); }
+.d .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.d .term { fill: var(--term-bg); }
+.d .term-t { fill: var(--term-fg); font-size: 12px; }
+.d .term-n { fill: var(--term-dim); font-size: 11px; }
+.d .hl { fill: color-mix(in oklab, var(--c-tui) 34%, var(--term-bg)); }
+
+/* Extension hook timeline */
+ol.hooks { list-style: none; margin: 18px 0 26px; padding: 0; position: relative; max-width: 46rem; }
+ol.hooks::before { content: ""; position: absolute; left: 7px; top: 10px; bottom: 10px; width: 2px; background: var(--rule); }
+ol.hooks li { position: relative; padding: 0 0 14px 32px; }
+ol.hooks li::before { content: ""; position: absolute; left: 1px; top: 7px; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 2px solid var(--muted); }
+ol.hooks li.change::before { background: var(--c-coding); border-color: var(--c-coding); }
+ol.hooks li.phase { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; padding-top: 6px; }
+ol.hooks li.phase::before { display: none; }
+.hk { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+.hk code { font-weight: 600; background: none; padding: 0; font-size: 14px; color: var(--ink); }
+.badge { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--rule); color: var(--muted); white-space: nowrap; }
+li.change .badge { color: var(--c-coding); border-color: color-mix(in oklab, var(--c-coding) 45%, transparent); }
+ol.hooks p { margin: 2px 0 0; font-size: 15px; line-height: 1.5; }
+
+/* Entry-type split */
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 32px; max-width: 46rem; margin: 6px 0 22px; }
+.split > div { min-width: 0; }
+.split h4 { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.split ul { list-style: none; padding: 0; margin: 0; font-size: 15px; line-height: 1.5; }
+.split li { padding: 5px 0; border-bottom: 1px solid var(--rule); }
+
+/* Supporting packages */
+.around { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px 28px; margin: 20px 0 10px; }
+.mod { min-width: 0; padding-top: 12px; border-top: 1.5px solid var(--k, var(--ink)); }
+.mod h4 { font-family: var(--mono); font-size: 14px; margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; color: var(--k, var(--ink)); }
+.mod h4 span { font-weight: 400; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mod p { font-size: 15px; line-height: 1.55; margin: 6px 0 0; }
+
+/* Glossary */
+dl.gloss { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: 12px 22px; max-width: 48rem; margin: 10px 0 20px; }
+dl.gloss dt { font-family: var(--mono); font-size: 13.5px; font-weight: 600; padding-top: 2px; }
+dl.gloss dd { margin: 0; font-size: 15.5px; line-height: 1.55; }
+@media (max-width: 560px) { dl.gloss { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } dl.gloss dd { margin-bottom: 12px; } }
+
+.cmds { list-style: none; padding: 0; margin: 10px 0 22px; max-width: 46rem; }
+.cmds li { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 4px 20px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 15.5px; }
+.cmds li code { justify-self: start; }
+@media (max-width: 620px) { .cmds li { grid-template-columns: minmax(0, 1fr); } }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1.5px solid var(--ink); font-family: var(--mono); font-size: 12px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Design document · earendil-works/pi</p>
+    <h1>How Pi is built</h1>
+    <p class="dek">A guided tour of the Pi monorepo for engineers new to it. It covers what each package does, how a prompt travels through the system, where each major component lives, and why the code is shaped the way it is.</p>
+    <dl class="meta">
+      <div><dt>Snapshot</dt><dd>walkthru @ 955cc6665</dd></div>
+      <div><dt>Version</dt><dd>0.99.2</dd></div>
+      <div><dt>Package folders</dt><dd>14</dd></div>
+      <div><dt>Source</dt><dd>199,913 lines of TS in packages/*/src</dd></div>
+      <div><dt>Written</dt><dd>2026-10-03</dd></div>
+    </dl>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Sections">
+      <p>Contents</p>
+      <ol>
+        <li><a href="#short"><span class="n">1</span>The short version</a></li>
+        <li><a href="#packages"><span class="n">2</span>Package map</a></li>
+        <li><a href="#prompt"><span class="n">3</span>Life of a prompt</a></li>
+        <li><a href="#ai"><span class="n">4</span>pi-ai</a></li>
+        <li><a href="#agent"><span class="n">5</span>pi-agent-core</a></li>
+        <li><a href="#runtime"><span class="n">6</span>pi-coding-agent</a></li>
+        <li><a href="#sessions"><span class="n">7</span>Sessions</a></li>
+        <li><a href="#extensions"><span class="n">8</span>Extensions and trust</a></li>
+        <li><a href="#tui"><span class="n">9</span>pi-tui</a></li>
+        <li><a href="#around"><span class="n">10</span>Around the core</a></li>
+        <li><a href="#decisions"><span class="n">11</span>Decisions and trade-offs</a></li>
+        <li><a href="#where"><span class="n">12</span>Where to look</a></li>
+        <li><a href="#glossary"><span class="n">13</span>Glossary</a></li>
+        <li><a href="#repo"><span class="n">14</span>Working in the repo</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <!-- 1 -->
+      <section id="short" class="prose">
+        <h2><span class="num">§1</span>The short version</h2>
+        <p>Pi is a coding agent you run in a terminal with the <code>pi</code> command. You type a request, and a language model reads files, runs commands and edits code through <em>tools</em> until the job is done. The repository builds that CLI as a stack of npm packages, and each one is useful on its own.</p>
+        <div class="layers">
+          <div class="layer k-ai"><b>pi-ai</b><p>Talks to 42 LLM providers through one streaming interface.</p></div>
+          <div class="layer k-agent"><b>pi-agent-core</b><p>Runs the loop: ask the model, execute the tools it calls, repeat.</p></div>
+          <div class="layer k-coding"><b>pi-coding-agent</b><p>The product: coding tools, sessions on disk, extensions and four front-ends.</p></div>
+          <div class="layer k-tui"><b>pi-tui</b><p>A terminal UI library that repaints only the lines that changed.</p></div>
+        </div>
+        <p>Four ideas explain most of the code.</p>
+        <ul>
+          <li><strong>Layers depend only downward.</strong> pi-ai knows nothing about agents. pi-agent-core knows nothing about files, terminals or disks. You can reuse any layer without the ones above it.</li>
+          <li><strong>Everything is an event stream.</strong> Vendor chunks become <code>AssistantMessageEvent</code>s. The loop wraps them as <code>AgentEvent</code>s, and the session fans those out to persistence, extensions and whichever front-end is attached.</li>
+          <li><strong>A session is an append-only tree.</strong> Every message, model switch and summary is one line in a <code>.jsonl</code> file. What the model sees next is computed from the active branch of that tree.</li>
+          <li><strong>The core stays small and features plug in.</strong> Extensions are TypeScript modules loaded into the Pi process. MCP support and the <code>codemode</code> tool are themselves built-in extensions. Pi has no permission system. Isolation comes from the operating system or a container.</li>
+        </ul>
+        <p class="label">Colour key used throughout</p>
+        <ul class="legend">
+          <li><span class="pkg k-ai">pi-ai</span></li>
+          <li><span class="pkg k-agent">pi-agent-core</span></li>
+          <li><span class="pkg k-coding">pi-coding-agent</span></li>
+          <li><span class="pkg k-tui">pi-tui</span></li>
+          <li><span class="pkg k-exp">supporting / experimental</span></li>
+        </ul>
+      </section>
+
+      <!-- 2 -->
+      <section id="packages" class="prose">
+        <h2><span class="num">§2</span>Package map</h2>
+        <p>The monorepo uses npm workspaces with 14 package folders under <code>packages/</code>. Four core packages form the product. The others support them or are experiments that the shipped CLI does not use yet.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 500" role="img" aria-label="Package dependency map: pi-coding-agent imports pi-agent-core, pi-tui, pi-mcp and pi-codemode; pi-agent-core imports pi-ai and chord; pi-ai imports pi-telemetry. Experimental packages sit apart.">
+              <defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker></defs>
+              <g class="k-coding">
+                <rect class="pk" x="30" y="24" width="660" height="76" rx="6"/>
+                <text class="pk-name" x="50" y="56" style="font-size:15px">pi-coding-agent</text>
+                <text class="t-s" x="50" y="80">the pi CLI · sessions · extensions · four front-ends</text>
+                <text class="t-s" x="672" y="56" text-anchor="end">83,756 lines</text>
+              </g>
+              <g class="k-agent">
+                <rect class="pk" x="30" y="170" width="260" height="70" rx="6"/>
+                <text class="pk-name" x="48" y="200">pi-agent-core</text>
+                <text class="t-s" x="48" y="222">agent loop · tool execution</text>
+                <text class="t-s" x="274" y="200" text-anchor="end">33,588</text>
+              </g>
+              <g class="k-tui">
+                <rect class="pk" x="310" y="170" width="160" height="70" rx="6"/>
+                <text class="pk-name" x="326" y="200">pi-tui</text>
+                <text class="t-s" x="326" y="222">terminal UI</text>
+                <text class="t-s" x="456" y="200" text-anchor="end">19,158</text>
+              </g>
+              <g class="k-exp">
+                <rect class="pk" x="490" y="170" width="85" height="70" rx="6"/>
+                <text class="pk-name" x="532.5" y="200" text-anchor="middle">pi-mcp</text>
+                <text class="t-s" x="532.5" y="222" text-anchor="middle">3,057</text>
+                <rect class="pk" x="595" y="170" width="95" height="70" rx="6"/>
+                <text class="pk-name" x="642.5" y="200" text-anchor="middle" style="font-size:11.5px">pi-codemode</text>
+                <text class="t-s" x="642.5" y="222" text-anchor="middle">1,600</text>
+              </g>
+              <g class="k-ai">
+                <rect class="pk" x="30" y="310" width="230" height="70" rx="6"/>
+                <text class="pk-name" x="48" y="340">pi-ai</text>
+                <text class="t-s" x="48" y="362">one API · 42 providers</text>
+                <text class="t-s" x="244" y="340" text-anchor="end">26,218</text>
+              </g>
+              <g class="k-exp">
+                <rect class="pk" x="30" y="420" width="160" height="56" rx="6"/>
+                <text class="pk-name" x="46" y="444">pi-telemetry</text>
+                <text class="t-s" x="46" y="464">935 · no pi deps</text>
+                <rect class="pk" x="230" y="420" width="160" height="56" rx="6"/>
+                <text class="pk-name" x="246" y="444">chord</text>
+                <text class="t-s" x="246" y="464">8,808 · no pi deps</text>
+              </g>
+              <path class="ln ln-b" d="M160 100 V168" marker-end="url(#m1)"/>
+              <text class="t-s halo" x="168" y="138">imports</text>
+              <path class="ln" d="M390 100 V168" marker-end="url(#m1)"/>
+              <path class="ln" d="M532 100 V168" marker-end="url(#m1)"/>
+              <path class="ln" d="M642 100 V168" marker-end="url(#m1)"/>
+              <path class="ln ln-b" d="M145 240 V308" marker-end="url(#m1)"/>
+              <path class="ln" d="M110 380 V418" marker-end="url(#m1)"/>
+              <path class="ln" d="M275 240 V418" marker-end="url(#m1)"/>
+              <rect class="ghost" x="720" y="24" width="220" height="452" rx="8"/>
+              <text class="t-cap" x="736" y="48">EXPERIMENTAL &amp; OPTIONAL</text>
+              <g>
+                <rect class="bx" x="736" y="62" width="188" height="48" rx="5"/>
+                <text class="t-b" x="750" y="82">pi-durable</text><text class="t-s" x="910" y="82" text-anchor="end">17,377</text>
+                <text class="t-s" x="750" y="100">durable agent runtime</text>
+                <rect class="bx" x="736" y="120" width="188" height="48" rx="5"/>
+                <text class="t-b" x="750" y="140">pi-server</text><text class="t-s" x="910" y="140" text-anchor="end">1,966</text>
+                <text class="t-s" x="750" y="158">routes calls to workers</text>
+                <rect class="bx" x="736" y="178" width="188" height="48" rx="5"/>
+                <text class="t-b" x="750" y="198">pi-client</text><text class="t-s" x="910" y="198" text-anchor="end">1,135</text>
+                <text class="t-s" x="750" y="216">remote session client</text>
+                <rect class="bx" x="736" y="236" width="188" height="48" rx="5"/>
+                <text class="t-b" x="750" y="256">pi-protocol</text><text class="t-s" x="910" y="256" text-anchor="end">869</text>
+                <text class="t-s" x="750" y="274">CBOR wire frames</text>
+                <rect class="bx" x="736" y="294" width="188" height="48" rx="5"/>
+                <text class="t-b" x="750" y="314">sqlite backend</text><text class="t-s" x="910" y="314" text-anchor="end">1,973</text>
+                <text class="t-s" x="750" y="332">session storage</text>
+                <rect class="bx" x="736" y="352" width="188" height="48" rx="5"/>
+                <text class="t-b" x="750" y="372">pi-evals</text><text class="t-s" x="910" y="372" text-anchor="end">1,446</text>
+                <text class="t-s" x="750" y="390">behavioral evals</text>
+              </g>
+              <text class="t-s" x="736" y="432">not used by the published pi;</text>
+              <text class="t-s" x="736" y="450">server/client/protocol appear</text>
+              <text class="t-s" x="736" y="468">only in coding-agent/src/experimental</text>
+            </svg>
+          </div>
+          <figcaption><b>Runtime dependencies, read from each package.json.</b> Arrows point at what a package imports, and numbers are lines of TypeScript in <code>src/</code>. The bold spine (coding-agent → agent-core → ai) is the path every prompt takes. Not drawn: coding-agent also imports pi-ai and chord directly, and agent-core imports pi-telemetry.</figcaption>
+        </figure>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Package</th><th>Folder</th><th class="num">Lines</th><th>Role</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td><span class="pkg k-coding">pi-coding-agent</span></td><td class="path">packages/coding-agent</td><td class="num">83,756</td><td>The <code>pi</code> CLI: sessions, tools, extensions, interactive / print / JSON / RPC modes, SDK</td><td><span class="status core">core</span></td></tr>
+              <tr><td><span class="pkg k-agent">pi-agent-core</span></td><td class="path">packages/agent</td><td class="num">33,588</td><td>Agent loop and tool execution, plus a newer durable harness</td><td><span class="status core">core</span></td></tr>
+              <tr><td><span class="pkg k-ai">pi-ai</span></td><td class="path">packages/ai</td><td class="num">26,218</td><td>Unified multi-provider LLM API, auth, model catalog</td><td><span class="status core">core</span></td></tr>
+              <tr><td><span class="pkg k-tui">pi-tui</span></td><td class="path">packages/tui</td><td class="num">19,158</td><td>Terminal UI framework with differential rendering</td><td><span class="status core">core</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-durable</span></td><td class="path">packages/durable</td><td class="num">17,377</td><td>Durable conversation, task and document runtime</td><td><span class="status exp">experimental</span></td></tr>
+              <tr><td><span class="pkg k-exp">chord</span></td><td class="path">packages/chord</td><td class="num">8,808</td><td>App-composition runtime: plugins, services, replicated state, RPC</td><td><span class="status support">support</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-mcp</span></td><td class="path">packages/mcp</td><td class="num">3,057</td><td>Standalone Model Context Protocol client</td><td><span class="status support">support</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-session-backend-sqlite-node</span></td><td class="path">packages/session-backends/sqlite-node</td><td class="num">1,973</td><td>SQLite storage for harness sessions</td><td><span class="status exp">optional</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-server</span></td><td class="path">packages/server</td><td class="num">1,966</td><td>Local server that routes calls to session workers</td><td><span class="status exp">experimental</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-codemode</span></td><td class="path">packages/codemode</td><td class="num">1,600</td><td>QuickJS sandbox for model-written JavaScript</td><td><span class="status support">support</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-evals</span></td><td class="path">packages/evals</td><td class="num">1,446</td><td>Behavioral evals for the coding agent</td><td><span class="status exp">tooling</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-client</span></td><td class="path">packages/client</td><td class="num">1,135</td><td>Transport-neutral client for remote sessions</td><td><span class="status exp">experimental</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-telemetry</span></td><td class="path">packages/telemetry</td><td class="num">935</td><td>Vendor-neutral telemetry contracts</td><td><span class="status support">support</span></td></tr>
+              <tr><td><span class="pkg k-exp">pi-protocol</span></td><td class="path">packages/protocol</td><td class="num">869</td><td>CBOR wire protocol for remote sessions</td><td><span class="status exp">experimental</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The root <code>npm run build</code> walks the graph bottom-up: chord, tui, telemetry, codemode, mcp, ai, durable, agent, the SQLite backend, protocol, client, server and finally coding-agent. All packages share one version number (0.99.2 here), which <code>scripts/sync-versions.js</code> keeps in lockstep.</p>
+      </section>
+
+      <!-- 3 -->
+      <section id="prompt" class="prose">
+        <h2><span class="num">§3</span>Life of a prompt</h2>
+        <p>Follow one request from the keyboard to the disk. The diagram shows the interactive front-end. Print, JSON and RPC modes replace only the left-most column.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 592" role="img" aria-label="Sequence diagram of one prompt: InteractiveMode calls AgentSession, which calls the Agent loop; the loop streams from pi-ai Models and the LLM endpoint, emits events back up, persists messages through SessionManager, runs tools, and repeats per turn until agent_end.">
+              <defs>
+                <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker>
+                <marker id="m2m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk-m"/></marker>
+              </defs>
+              <!-- lifeline heads -->
+              <g class="k-coding"><rect class="pk" x="16" y="16" width="118" height="46" rx="6"/><text class="pk-name" x="75" y="36" text-anchor="middle" style="font-size:11.5px">InteractiveMode</text><text class="t-s" x="75" y="53" text-anchor="middle">front-end</text></g>
+              <g class="k-coding"><rect class="pk" x="151" y="16" width="118" height="46" rx="6"/><text class="pk-name" x="210" y="36" text-anchor="middle">AgentSession</text><text class="t-s" x="210" y="53" text-anchor="middle">coding-agent</text></g>
+              <g class="k-agent"><rect class="pk" x="286" y="16" width="118" height="46" rx="6"/><text class="pk-name" x="345" y="36" text-anchor="middle">Agent loop</text><text class="t-s" x="345" y="53" text-anchor="middle">pi-agent-core</text></g>
+              <g class="k-ai"><rect class="pk" x="421" y="16" width="118" height="46" rx="6"/><text class="pk-name" x="480" y="36" text-anchor="middle">Models</text><text class="t-s" x="480" y="53" text-anchor="middle">pi-ai</text></g>
+              <g><rect class="bx" x="556" y="16" width="118" height="46" rx="6"/><text class="t-b" x="615" y="36" text-anchor="middle">LLM endpoint</text><text class="t-s" x="615" y="53" text-anchor="middle">HTTPS · SSE</text></g>
+              <g class="k-coding"><rect class="pk" x="691" y="16" width="118" height="46" rx="6"/><text class="pk-name" x="750" y="36" text-anchor="middle">Tools</text><text class="t-s" x="750" y="53" text-anchor="middle">read, bash, edit…</text></g>
+              <g class="k-coding"><rect class="pk" x="826" y="16" width="118" height="46" rx="6"/><text class="pk-name" x="885" y="36" text-anchor="middle">SessionManager</text><text class="t-s" x="885" y="53" text-anchor="middle">.jsonl on disk</text></g>
+              <path class="life" d="M75 62 V584 M210 62 V584 M345 62 V584 M480 62 V584 M615 62 V584 M750 62 V584 M885 62 V584"/>
+              <!-- before loop -->
+              <path class="ln" d="M75 92 H206" marker-end="url(#m2)"/><text x="142" y="86" text-anchor="middle">prompt(text)</text>
+              <path class="ln" d="M210 126 H341" marker-end="url(#m2)"/><text x="277" y="120" text-anchor="middle">agent.prompt()</text>
+              <!-- loop frame -->
+              <rect class="frame" x="140" y="148" width="808" height="394" rx="4"/>
+              <rect class="tab" x="140" y="148" width="214" height="20"/>
+              <text class="t-s" x="148" y="162">loop · one turn per model reply</text>
+              <path class="ln" d="M345 190 h30 v16 h-26" marker-end="url(#m2)"/><text x="382" y="202">convertToLlm</text>
+              <path class="ln" d="M345 232 H476" marker-end="url(#m2)"/><text x="412" y="226" text-anchor="middle">streamSimple()</text>
+              <path class="ln" d="M480 268 H611" marker-end="url(#m2)"/><text x="547" y="262" text-anchor="middle">request + auth</text>
+              <path class="ln-m dash" d="M615 304 H484" marker-end="url(#m2m)"/><text x="547" y="298" text-anchor="middle">SSE chunks</text>
+              <path class="ln-m dash" d="M480 340 H349" marker-end="url(#m2m)"/><text x="412" y="334" text-anchor="middle">*_delta events</text>
+              <path class="ln-m dash" d="M345 376 H214" marker-end="url(#m2m)"/><text x="277" y="370" text-anchor="middle">message_update</text>
+              <path class="ln-m dash" d="M210 376 H79" marker-end="url(#m2m)"/><text x="142" y="370" text-anchor="middle">requestRender()</text>
+              <path class="ln" d="M345 412 H214" marker-end="url(#m2)"/><text x="277" y="406" text-anchor="middle">message_end</text>
+              <path class="ln" d="M210 436 H881" marker-end="url(#m2)"/><text class="halo" x="547" y="430" text-anchor="middle">appendMessage()</text>
+              <path class="ln" d="M345 470 H746" marker-end="url(#m2)"/><text class="halo" x="547" y="464" text-anchor="middle">execute(toolCall)</text>
+              <path class="ln-m dash" d="M750 502 H349" marker-end="url(#m2m)"/><text class="halo" x="547" y="496" text-anchor="middle">tool result</text>
+              <path class="ln" d="M345 530 H214" marker-end="url(#m2)"/><text x="277" y="524" text-anchor="middle">turn_end</text>
+              <!-- after loop -->
+              <path class="ln" d="M345 568 H214" marker-end="url(#m2)"/><text x="277" y="562" text-anchor="middle">agent_end</text>
+              <path class="ln" d="M210 568 H79" marker-end="url(#m2)"/><text x="142" y="562" text-anchor="middle">idle</text>
+            </svg>
+          </div>
+          <figcaption><b>One prompt, end to end.</b> Solid arrows are calls, dashed arrows are streamed events flowing back up. Tool results are appended to the session the same way as replies (not drawn). The dashed frame repeats while the model keeps calling tools or you keep queueing messages.</figcaption>
+        </figure>
+        <ol class="steps">
+          <li><div>You press Enter. <code>InteractiveMode</code> passes the text to <code>AgentSession.prompt()</code>, which runs extension <code>input</code> handlers, handles extension slash commands and expands prompt templates.</div></li>
+          <li><div><code>AgentSession</code> hands the message to <code>Agent.prompt()</code> in pi-agent-core. Before each request the loop turns its <code>AgentMessage[]</code> into plain LLM messages with <code>convertToLlm</code>.</div></li>
+          <li><div>The loop calls its <code>streamFn</code>, which pi-coding-agent wires to <code>ModelRuntime.streamSimple()</code>. pi-ai resolves auth (stored credential first, then environment variables, refreshing OAuth tokens when needed), finds the provider that owns the model, loads that provider's wire-protocol module on first use and opens the HTTP stream.</div></li>
+          <li><div>Streamed chunks come back as normalized <code>AssistantMessageEvent</code>s. The loop re-emits them as <code>message_update</code>. <code>AgentSession</code> gives each event to extensions first, then to listeners such as the TUI, which schedules a repaint.</div></li>
+          <li><div>On <code>message_end</code>, <code>AgentSession</code> appends the finished message to the session file.</div></li>
+          <li><div>If the reply contains tool calls, the loop runs them (in parallel by default), emits <code>tool_execution_*</code> events, appends each result and starts another turn.</div></li>
+          <li><div>When no tool calls or queued messages remain, the loop emits <code>agent_end</code>. <code>AgentSession</code> may still auto-retry a failed request, or compact the context and retry after a context-overflow error.</div></li>
+        </ol>
+        <div class="why k-coding">
+          <p>Each layer only produces events and reacts to hooks. The loop has no idea a disk exists, so the same <code>Agent</code> class can run inside the CLI, the SDK, a browser app (through <code>streamProxy</code>) or a chat bot. Front-ends only subscribe to events, which is how four of them share one <code>AgentSession</code>.</p>
+        </div>
+      </section>
+
+      <!-- 4 -->
+      <section id="ai" class="prose">
+        <h2><span class="num">§4</span>One interface to many LLMs <span class="pkg k-ai">packages/ai</span></h2>
+        <p>pi-ai answers one question: given a conversation and a model, stream back the reply in a shape that does not depend on the vendor. Three nouns carry the design.</p>
+        <dl class="gloss">
+          <dt>Model</dt><dd>Plain JSON data: <code>id</code>, <code>provider</code>, <code>api</code>, <code>baseUrl</code>, context window, prices and thinking support. No functions are attached, so a session file can record which model answered as ordinary text.</dd>
+          <dt>Provider</dt><dd>A runtime object that owns a model catalog, its auth (API keys, environment variables, OAuth logins) and a stream implementation. Built with <code>createProvider()</code>. There are 42 built-in factories in <code>src/providers/</code>.</dd>
+          <dt>API implementation</dt><dd>One wire protocol, such as <code>anthropic-messages</code> or <code>openai-completions</code>. Each module in <code>src/api/</code> exports <code>stream</code> and <code>streamSimple</code>. Many providers share one.</dd>
+        </dl>
+        <p>A <code>Models</code> collection holds the providers. Its <code>stream()</code> method normalizes the context, merges the provider's auth into the request, and then dispatches to the provider that owns the model.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 506" role="img" aria-label="Fan-in diagram: 42 provider factories map onto 10 chat wire protocols, and every protocol emits the same AssistantMessageEventStream.">
+              <defs><marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker></defs>
+              <text class="t-cap" x="20" y="22">PROVIDER FACTORIES (42)</text>
+              <text class="t-cap" x="440" y="22">WIRE APIS (10 FOR CHAT)</text>
+              <text class="t-cap" x="760" y="22">ONE EVENT SHAPE</text>
+              <g style="font-size:11px">
+                <rect class="bx" x="20" y="36" width="320" height="34" rx="5"/><text x="34" y="57">Groq, Cerebras, DeepSeek, Z.ai, Qwen… ×20</text>
+                <rect class="bx" x="20" y="78" width="320" height="34" rx="5"/><text x="34" y="99">OpenAI · xAI · Meta</text>
+                <rect class="bx" x="20" y="120" width="320" height="34" rx="5"/><text x="34" y="141">Anthropic · Kimi · MiniMax ×2 · Vercel</text>
+                <rect class="ghost" x="20" y="162" width="320" height="34" rx="5"/><text x="34" y="183">Gateways ×6: OpenRouter, Copilot, …</text>
+                <rect class="bx" x="20" y="204" width="320" height="34" rx="5"/><text x="34" y="225">Google (Gemini API)</text>
+                <rect class="bx" x="20" y="246" width="320" height="34" rx="5"/><text x="34" y="267">Vertex AI</text>
+                <rect class="bx" x="20" y="288" width="320" height="34" rx="5"/><text x="34" y="309">Amazon Bedrock</text>
+                <rect class="bx" x="20" y="330" width="320" height="34" rx="5"/><text x="34" y="351">Mistral</text>
+                <rect class="bx" x="20" y="372" width="320" height="34" rx="5"/><text x="34" y="393">Azure OpenAI</text>
+                <rect class="bx" x="20" y="414" width="320" height="34" rx="5"/><text x="34" y="435">OpenAI Codex (ChatGPT sign-in)</text>
+                <rect class="bx" x="20" y="456" width="320" height="34" rx="5"/><text x="34" y="477">Radius</text>
+              </g>
+              <g class="k-ai">
+                <rect class="pk" x="440" y="36" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="57">openai-completions</text>
+                <rect class="pk" x="440" y="78" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="99">openai-responses</text>
+                <rect class="pk" x="440" y="120" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="141">anthropic-messages</text>
+                <text class="t-s" x="454" y="184">↑ picks one per model.api</text>
+                <rect class="pk" x="440" y="204" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="225">google-generative-ai</text>
+                <rect class="pk" x="440" y="246" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="267">google-vertex</text>
+                <rect class="pk" x="440" y="288" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="309">bedrock-converse-stream</text>
+                <rect class="pk" x="440" y="330" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="351">mistral-conversations</text>
+                <rect class="pk" x="440" y="372" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="393">azure-openai-responses</text>
+                <rect class="pk" x="440" y="414" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="435">openai-codex-responses</text>
+                <rect class="pk" x="440" y="456" width="230" height="34" rx="5"/><text class="pk-name" x="454" y="477">pi-messages</text>
+                <rect class="pk" x="760" y="36" width="180" height="454" rx="6"/>
+                <text class="pk-name" x="850" y="70" text-anchor="middle">AssistantMessage</text>
+                <text class="pk-name" x="850" y="88" text-anchor="middle">EventStream</text>
+                <text class="t-s" x="850" y="132" text-anchor="middle">start</text>
+                <text class="t-s" x="850" y="156" text-anchor="middle">text_delta</text>
+                <text class="t-s" x="850" y="180" text-anchor="middle">thinking_delta</text>
+                <text class="t-s" x="850" y="204" text-anchor="middle">toolcall_delta</text>
+                <text class="t-s" x="850" y="228" text-anchor="middle">toolcall_end</text>
+                <text class="t-s" x="850" y="252" text-anchor="middle">done | error</text>
+                <text class="t-s" x="850" y="460" text-anchor="middle">consumed by the agent loop</text>
+              </g>
+              <g>
+                <path class="ln" d="M340 53 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 95 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 137 H436" marker-end="url(#m3)"/>
+                <path class="ln-m dash" d="M340 179 H436"/>
+                <path class="ln" d="M340 221 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 263 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 305 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 347 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 389 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 431 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M340 473 H436" marker-end="url(#m3)"/>
+                <path class="ln" d="M670 53 H756 M670 95 H756 M670 137 H756 M670 221 H756 M670 263 H756 M670 305 H756 M670 347 H756 M670 389 H756 M670 431 H756 M670 473 H756"/>
+              </g>
+              <text class="t-s halo" x="388" y="46" text-anchor="middle">uses</text>
+              <text class="t-s halo" x="713" y="46" text-anchor="middle">emits</text>
+            </svg>
+          </div>
+          <figcaption><b>Many vendors, few protocols, one output.</b> Read from <code>packages/ai/src/providers/*.ts</code>. Every API module turns its vendor's stream into the same <code>AssistantMessageEvent</code> sequence, so nothing above pi-ai knows which vendor answered. The six gateways (OpenRouter, GitHub Copilot, Fireworks, OpenCode Zen, OpenCode Go, Cloudflare AI Gateway) choose a protocol per model. TypeSafe serves only classifier models and is left out.</figcaption>
+        </figure>
+        <p>Every provider's reply ends up in the same few types, defined in <code>src/types.ts</code>:</p>
+<pre><code>type Message = SystemMessage | UserMessage | AssistantMessage | ToolResultMessage;
+
+interface AssistantMessage {
+  role: "assistant";
+  content: (TextContent | ThinkingContent | ToolCall)[];
+  api: Api; provider: string; model: string;
+  usage: Usage;           <span class="cm">// tokens plus computed cost for this reply</span>
+  stopReason: StopReason; <span class="cm">// "stop" | "toolUse" | "length" | "error" | "aborted" | …</span>
+  timestamp: number;
+}</code></pre>
+        <div class="why k-ai">
+          <ul>
+            <li><strong>One event shape</strong> keeps every layer above vendor-neutral and lets you switch models mid-conversation. When one vendor's message is sent to another, its thinking blocks become <code>&lt;thinking&gt;</code> text and everything else passes through unchanged.</li>
+            <li><strong>Lazy SDK loading.</strong> A provider imports a tiny <code>*.lazy.ts</code> wrapper, and the heavy SDK (<code>@anthropic-ai/sdk</code>, <code>openai</code>, <code>@google/genai</code>, AWS) loads on the first request. Startup stays fast, bundles stay small, and the core entrypoint bundles cleanly for browsers.</li>
+            <li><strong>The system prompt and tool list live inside the transcript</strong> as <code>system</code> messages. A later system message can patch named prompt <code>sections</code> or add and remove tools. Models that accept mid-conversation system messages get the patch in place, which keeps the cached prompt prefix valid. Other models get the replayed prompt collapsed into the first message.</li>
+            <li><strong>Auth belongs to the provider.</strong> A stored credential owns its provider, and environment variables are read only when nothing is stored. OAuth refresh runs inside <code>CredentialStore.modify()</code>, a serialized read-modify-write, so two concurrent requests cannot both refresh one token.</li>
+            <li><strong>TypeBox tool schemas</strong> are plain JSON with built-in validation, so tool definitions can be stored and sent over the wire.</li>
+          </ul>
+        </div>
+        <p><strong>The model catalog is generated.</strong> <code>scripts/generate-models.ts</code> pulls models.dev and the OpenRouter listing, applies hand-written corrections and writes <code>src/providers/data/*.json</code>. That folder is git-ignored and created at build time. Typed wrappers such as <code>anthropic.models.ts</code> import the JSON. Fix the script and never hand-edit the output.</p>
+        <p class="label">Where it lives</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Path (packages/ai/…)</th><th class="num">Lines</th><th>What it holds</th></tr></thead>
+            <tbody>
+              <tr><td class="path">src/types.ts</td><td class="num">1,168</td><td>Every message, model, event and option type</td></tr>
+              <tr><td class="path">src/models.ts</td><td class="num">1,256</td><td><code>Models</code> collection, <code>createProvider()</code>, cost and thinking-level helpers</td></tr>
+              <tr><td class="path">src/api/&lt;api&gt;.ts</td><td class="num">10 files</td><td>Vendor stream → <code>AssistantMessageEvent</code>. <code>anthropic-messages.ts</code> alone is 1,646 lines</td></tr>
+              <tr><td class="path">src/api/lazy.ts</td><td class="num">98</td><td>Lazy-load wrapper. Setup failures become stream <code>error</code> events</td></tr>
+              <tr><td class="path">src/api/transform-messages.ts</td><td class="num">235</td><td>Cross-provider fixes such as image placeholders for text-only models</td></tr>
+              <tr><td class="path">src/providers/&lt;id&gt;.ts</td><td class="num">42 files</td><td>Identity, auth, catalog and API for each provider</td></tr>
+              <tr><td class="path">src/auth/</td><td class="num"></td><td>Credential resolution and OAuth flows (Anthropic, GitHub Copilot, OpenAI Codex, …)</td></tr>
+              <tr><td class="path">src/utils/event-stream.ts</td><td class="num">110</td><td>The async-iterable queue behind every stream</td></tr>
+              <tr><td class="path">src/providers/faux.ts</td><td class="num">710</td><td>Scriptable fake provider used by tests</td></tr>
+              <tr><td class="path">scripts/generate-models.ts</td><td class="num"></td><td>Catalog generator</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 5 -->
+      <section id="agent" class="prose">
+        <h2><span class="num">§5</span>The agent loop <span class="pkg k-agent">packages/agent</span></h2>
+        <p>pi-agent-core turns a single model call into an agent. It calls the model, runs the tools the model asked for, feeds the results back and repeats until the model stops asking. The public surface is the <code>Agent</code> class in <code>src/agent.ts</code>. The loop itself is <code>runLoop()</code> in <code>src/agent-loop.ts</code>.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 648" role="img" aria-label="Flowchart of runLoop: inject pending messages, prepareRequest, stream reply; on error exit; if tool calls run them; finishTurn and turn_end; loop back while tools ran or steering is queued; then check follow-ups; else agent_end.">
+              <defs><marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker></defs>
+              <rect class="bx" x="70" y="16" width="220" height="36" rx="18"/><text x="180" y="39" text-anchor="middle">agent.prompt(msgs)</text>
+              <path class="ln" d="M180 52 V76" marker-end="url(#m4)"/>
+              <g class="k-agent"><rect class="pk" x="60" y="80" width="240" height="48" rx="6"/><text class="t-b" x="180" y="100" text-anchor="middle">inject pending messages</text><text class="t-s" x="180" y="118" text-anchor="middle">steering · follow-ups · tool loadout</text></g>
+              <path class="ln" d="M180 128 V150" marker-end="url(#m4)"/>
+              <g class="k-agent"><rect class="pk" x="60" y="154" width="240" height="40" rx="6"/><text class="t-b" x="180" y="179" text-anchor="middle">prepareRequest() hook</text></g>
+              <path class="ln" d="M180 194 V216" marker-end="url(#m4)"/>
+              <g class="k-ai"><rect class="pk" x="60" y="220" width="240" height="48" rx="6"/><text class="t-b" x="180" y="240" text-anchor="middle">stream assistant reply</text><text class="t-s" x="180" y="258" text-anchor="middle">convertToLlm → pi-ai</text></g>
+              <path class="ln" d="M180 268 V290" marker-end="url(#m4)"/>
+              <polygon class="bx" points="82,294 278,294 290,314 278,334 82,334 70,314"/><text x="180" y="318" text-anchor="middle">error or aborted?</text>
+              <path class="ln" d="M180 334 V356" marker-end="url(#m4)"/><text class="t-s" x="188" y="350">no</text>
+              <polygon class="bx" points="82,360 278,360 290,380 278,400 82,400 70,380"/><text x="180" y="384" text-anchor="middle">reply has tool calls?</text>
+              <path class="ln" d="M290 380 H354" marker-end="url(#m4)"/><text class="t-s" x="322" y="373" text-anchor="middle">yes</text>
+              <g class="k-coding"><rect class="pk" x="358" y="356" width="250" height="48" rx="6"/><text class="t-b" x="483" y="376" text-anchor="middle">execute tool calls</text><text class="t-s" x="483" y="394" text-anchor="middle">parallel · before/afterToolCall</text></g>
+              <path class="ln" d="M483 404 V442" marker-end="url(#m4)"/>
+              <path class="ln" d="M180 400 V466 H354" marker-end="url(#m4)"/><text class="t-s" x="188" y="424">no</text>
+              <g class="k-agent"><rect class="pk" x="358" y="446" width="250" height="40" rx="6"/><text class="t-b" x="483" y="471" text-anchor="middle">finishTurn() → turn_end</text></g>
+              <path class="ln" d="M608 466 H660" marker-end="url(#m4)"/>
+              <polygon class="bx" points="676,446 912,446 924,466 912,486 676,486 664,466"/><text x="794" y="470" text-anchor="middle">tools ran or steering queued?</text>
+              <path class="ln" d="M794 446 V110 H304" marker-end="url(#m4)"/>
+              <text class="t-s halo" x="802" y="270">yes · inner loop</text>
+              <text class="t-s halo" x="802" y="286">(next turn)</text>
+              <path class="ln" d="M794 486 V524" marker-end="url(#m4)"/><text class="t-s" x="802" y="510">no</text>
+              <polygon class="bx" points="676,528 912,528 924,548 912,568 676,568 664,548"/><text x="794" y="552" text-anchor="middle">follow-up queued?</text>
+              <path class="ln" d="M924 548 H944 V92 H304" marker-end="url(#m4)"/>
+              <text class="t-s halo" x="620" y="86" text-anchor="middle">yes · outer loop (follow-up messages)</text>
+              <path class="ln" d="M794 568 V602" marker-end="url(#m4)"/><text class="t-s" x="802" y="590">no</text>
+              <rect class="bx" x="704" y="606" width="180" height="30" rx="15"/><text class="t-b" x="794" y="626" text-anchor="middle">agent_end</text>
+              <path class="ln" d="M70 314 H36 V621 H700" marker-end="url(#m4)"/><text class="t-s" x="42" y="306">yes</text>
+              <text class="t-s halo" x="370" y="615" text-anchor="middle">hard exit on error or abort</text>
+            </svg>
+          </div>
+          <figcaption><b>Inside <code>runLoop()</code>.</b> Indigo steps belong to pi-agent-core, the teal step calls pi-ai, and the amber step runs tools that the application supplies. Each pass through the inner loop is one <em>turn</em>: one model reply plus the tools it called. The whole run from <code>prompt()</code> to <code>agent_end</code> is one <em>run</em>.</figcaption>
+        </figure>
+        <h3>Mechanics worth knowing</h3>
+        <dl class="gloss">
+          <dt>AgentMessage</dt><dd>The agent stores <code>AgentMessage</code>s. These are the four LLM roles plus custom roles an app adds through TypeScript declaration merging. pi-coding-agent adds bash executions, compaction summaries and extension messages. Before each request, <code>transformContext</code> (optional) and <code>convertToLlm</code> (required) reduce them to what the model understands.</dd>
+          <dt>Steering vs follow-up</dt><dd>A steering message, typed while the agent works, is delivered after the current turn's tools finish. A follow-up waits until the agent would otherwise stop. Each queue delivers either one message at a time or all queued messages at once.</dd>
+          <dt>Parallel tools</dt><dd>For each call in order, arguments are validated and <code>beforeToolCall</code> runs (it can block the call). The allowed tools then run concurrently. Results are appended in the order the model asked for them, whatever order they finished in. One tool marked <code>sequential</code> makes its whole batch sequential. A tool reports failure by throwing, and the model receives an error result.</dd>
+          <dt>Truncated replies</dt><dd>If a reply hit the output token limit (<code>stopReason: "length"</code>), every tool call in it fails without running, because its JSON arguments may be cut off.</dd>
+          <dt>Tool loadout</dt><dd>Before each request the loop compares the tools it can execute with the tools the transcript has declared. If they differ, it appends a <code>system</code> message with <code>toolsAdded</code> and <code>toolsRemoved</code>.</dd>
+        </dl>
+        <div class="why k-agent">
+          <p>The loop owns control flow and nothing else. Everything app-specific enters through hooks (<code>prepareRequest</code>, <code>beforeToolCall</code>, <code>afterToolCall</code>, <code>finishTurn</code>, the queue polls) and leaves through events. pi-coding-agent adds persistence, compaction, retries and extensions without forking the loop, and the same package can back a web app or a Slack bot.</p>
+        </div>
+        <div class="note">
+          <span class="tag">Heads-up: two generations in one package</span>
+          <p><code>src/agent.ts</code> and <code>src/agent-loop.ts</code> are what <code>pi</code> runs today. <code>src/harness/</code> holds a newer durable harness (<code>AgentHarness</code>, lanes, durable operations and the experimental <code>pico3</code> kernel), started on 2026-05-03. Only <code>coding-agent/src/experimental/</code> uses it, and that folder is excluded from the published npm package.</p>
+          <p>pi-coding-agent also keeps its own compaction and session code in <code>src/core/</code>, next to similar modules under <code>agent/src/harness/</code>. To fix a CLI bug, start in coding-agent's <code>core/</code> and agent's <code>agent-loop.ts</code>.</p>
+        </div>
+        <p class="label">Where it lives</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Path (packages/agent/…)</th><th class="num">Lines</th><th>What it holds</th></tr></thead>
+            <tbody>
+              <tr><td class="path">src/agent.ts</td><td class="num">613</td><td><code>Agent</code>: state, queues, <code>subscribe()</code>, <code>prompt()</code>, <code>abort()</code></td></tr>
+              <tr><td class="path">src/agent-loop.ts</td><td class="num">940</td><td><code>runLoop()</code>, reply streaming, tool execution</td></tr>
+              <tr><td class="path">src/types.ts</td><td class="num">529</td><td><code>AgentMessage</code>, <code>AgentTool</code>, <code>AgentEvent</code>, hook signatures</td></tr>
+              <tr><td class="path">src/proxy.ts</td><td class="num">406</td><td><code>streamProxy</code> for browser apps that call models through a backend</td></tr>
+              <tr><td class="path">src/harness/</td><td class="num"></td><td>The newer durable harness (used only by experimental code)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 6 -->
+      <section id="runtime" class="prose">
+        <h2><span class="num">§6</span>The coding agent runtime <span class="pkg k-coding">packages/coding-agent</span></h2>
+        <p>pi-coding-agent holds 42% of the source (83,756 lines). Most of it serves one idea: a single <code>AgentSession</code> does the work, and thin front-ends handle input and output around it.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 480" role="img" aria-label="Composition diagram: four front-ends (Interactive, Print/JSON, RPC, SDK) all drive one AgentSession inside an AgentSessionRuntime, which also owns cwd-bound services ModelRuntime, SettingsManager and ResourceLoader.">
+              <defs><marker id="m5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker></defs>
+              <g class="k-tui"><rect class="pk" x="30" y="16" width="210" height="60" rx="6"/><text class="pk-name" x="135" y="41" text-anchor="middle">Interactive</text><text class="t-s" x="135" y="61" text-anchor="middle">InteractiveMode + pi-tui</text></g>
+              <rect class="bx" x="260" y="16" width="210" height="60" rx="6"/><text class="t-b" x="365" y="41" text-anchor="middle">Print / JSON</text><text class="t-s" x="365" y="61" text-anchor="middle">pi -p · --mode json</text>
+              <rect class="bx" x="490" y="16" width="210" height="60" rx="6"/><text class="t-b" x="595" y="41" text-anchor="middle">RPC</text><text class="t-s" x="595" y="61" text-anchor="middle">JSONL on stdin / stdout</text>
+              <rect class="bx" x="720" y="16" width="210" height="60" rx="6"/><text class="t-b" x="825" y="41" text-anchor="middle">SDK</text><text class="t-s" x="825" y="61" text-anchor="middle">createAgentSession()</text>
+              <path class="ln" d="M135 76 V100 M365 76 V100 M595 76 V100 M825 76 V100 M135 100 H825"/>
+              <path class="ln ln-b" d="M655 100 V168" marker-end="url(#m5)"/>
+              <text class="t-s halo" x="663" y="146">prompt() · subscribe(events)</text>
+              <rect class="ghost" x="20" y="118" width="920" height="350" rx="10"/>
+              <text class="t-b" x="36" y="142">AgentSessionRuntime</text>
+              <text class="t-s" x="36" y="160">rebuilt on /new · /resume · /fork</text>
+              <rect x="40" y="172" width="320" height="280" rx="8" style="fill:var(--surface);stroke:var(--rule);stroke-width:1.2"/>
+              <text class="t-cap" x="56" y="192">CWD-BOUND SERVICES</text>
+              <g class="k-ai"><rect class="pk" x="56" y="204" width="288" height="66" rx="6"/><text class="pk-name" x="72" y="228">ModelRuntime</text><text class="t-s" x="72" y="247">wraps pi-ai Models</text><text class="t-s" x="72" y="262">auth.json · models.json</text></g>
+              <rect class="bx" x="56" y="284" width="288" height="66" rx="6"/><text class="t-b" x="72" y="308">SettingsManager</text><text class="t-s" x="72" y="327">settings.json</text><text class="t-s" x="72" y="342">global, then trusted project</text>
+              <rect class="bx" x="56" y="364" width="288" height="76" rx="6"/><text class="t-b" x="72" y="388">ResourceLoader</text><text class="t-s" x="72" y="407">extensions · skills · prompts</text><text class="t-s" x="72" y="423">themes · AGENTS.md · SYSTEM.md</text>
+              <g class="k-coding"><rect class="pk" x="380" y="172" width="544" height="280" rx="8"/><text class="pk-name" x="398" y="196" style="font-size:14px">AgentSession</text><text class="t-s" x="398" y="214">core/agent-session.ts · shared by every front-end</text></g>
+              <g class="k-agent"><rect class="pk" x="398" y="232" width="230" height="64" rx="6"/><text class="pk-name" x="414" y="256">Agent</text><text class="t-s" x="414" y="276">pi-agent-core loop</text></g>
+              <rect class="bx" x="676" y="232" width="230" height="64" rx="6"/><text class="t-b" x="692" y="256">SessionManager</text><text class="t-s" x="692" y="276">append-only .jsonl tree</text>
+              <rect class="bx" x="398" y="314" width="230" height="64" rx="6"/><text class="t-b" x="414" y="338">ExtensionRunner</text><text class="t-s" x="414" y="358">pi.on() handlers · commands</text>
+              <rect class="bx" x="676" y="314" width="230" height="64" rx="6"/><text class="t-b" x="692" y="338">Tools</text><text class="t-s" x="692" y="358">read · bash · edit · write …</text>
+              <text class="t-s" x="398" y="410">+ auto-compaction · retry · model switching · !bash · /tree</text>
+              <text class="t-s" x="398" y="428">+ steering and follow-up queues · prompt-cache warming</text>
+              <path class="ln" d="M628 264 H672" marker-end="url(#m5)"/><text class="t-s halo" x="650" y="257" text-anchor="middle">append</text>
+              <path class="ln" d="M398 250 H348" marker-end="url(#m5)"/><text class="t-s halo" x="372" y="243" text-anchor="middle">LLM calls</text>
+              <path class="ln" d="M344 402 H371 V346 H394" marker-end="url(#m5)"/><text class="t-s halo" x="358" y="396" text-anchor="middle">loads</text>
+              <path class="ln" d="M513 314 V300" marker-end="url(#m5)"/><text class="t-s halo" x="520" y="309">hooks</text>
+            </svg>
+          </div>
+          <figcaption><b>Who owns what at runtime.</b> Every front-end drives the same <code>AgentSession</code>. The services on the left are tied to one working directory and are recreated when a session from another project is opened.</figcaption>
+        </figure>
+        <h3>Startup, in order (<code>src/main.ts</code>)</h3>
+        <ol class="steps">
+          <li><div>Sub-commands that need no session (<code>pi install</code> / <code>remove</code> / <code>update</code> / <code>list</code>, <code>pi config</code>, <code>pi mcp</code>, auth commands) run and exit.</div></li>
+          <li><div><code>parseArgs()</code> reads the flags. <code>resolveAppMode()</code> picks interactive (a TTY), print (<code>-p</code> or piped stdin), JSON or RPC.</div></li>
+          <li><div>Migrations run, settings load, and <code>createSessionManager()</code> opens a new, continued, resumed or forked session.</div></li>
+          <li><div><code>createAgentSessionRuntime()</code> calls a factory that resolves project trust, builds the services (<code>ModelRuntime</code>, <code>SettingsManager</code>, <code>ResourceLoader</code>) and then creates the <code>AgentSession</code>.</div></li>
+          <li><div>The chosen mode runs: <code>InteractiveMode.run()</code>, <code>runPrintMode()</code> or <code>runRpcMode()</code>.</div></li>
+        </ol>
+        <h3>What AgentSession adds on top of Agent</h3>
+        <ul>
+          <li>Persists every finished message and every model or thinking-level change.</li>
+          <li>Compaction, both manual (<code>/compact</code>) and automatic, plus overflow recovery.</li>
+          <li>Auto-retry for retryable provider errors.</li>
+          <li>Model cycling and thinking-level control, clamped to what the model supports.</li>
+          <li><code>!command</code> shell execution recorded into the conversation.</li>
+          <li>Branching, forking and <code>/tree</code> navigation.</li>
+          <li>Binding extensions: their tools, commands and event handlers.</li>
+        </ul>
+        <p><strong>Built-in tools</strong> live in <code>src/core/tools/</code>, which defines eight tool names: <code>read</code>, <code>bash</code>, <code>edit</code>, <code>write</code>, <code>grep</code>, <code>find</code>, <code>ls</code> and <code>powershell</code>. The first four are active by default (<code>DEFAULT_TOOL_NAMES</code>). Tool calls can run in parallel, so every file-changing tool wraps its read-modify-write in <code>withFileMutationQueue()</code>, which serializes work per real file path.</p>
+        <p><strong>The system prompt</strong> is built in <code>src/core/system-prompt.ts</code> as named sections: a preamble, tool snippets and guidelines, context files such as AGENTS.md, skills and the working directory. Those sections become the <code>sections</code> of the session's first system message, so later changes are small patches.</p>
+        <div class="why k-coding">
+          <p>One core, many shells. Interactive, print, JSON, RPC and the SDK all drive the same <code>AgentSession</code>, so a fix to retries or compaction lands everywhere at once. Services are rebuilt per working directory because <code>/resume</code> can open a session that belongs to another project, and that session needs its own project's settings, extensions and models. The runtime keeps its factory and calls it again for <code>/new</code>, <code>/resume</code>, <code>/fork</code> and imports.</p>
+        </div>
+        <p class="label">Where it lives</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Path (packages/coding-agent/…)</th><th class="num">Lines</th><th>What it holds</th></tr></thead>
+            <tbody>
+              <tr><td class="path">src/main.ts</td><td class="num">992</td><td>Startup and mode dispatch</td></tr>
+              <tr><td class="path">src/cli/args.ts</td><td class="num">459</td><td>Flag parsing</td></tr>
+              <tr><td class="path">src/core/agent-session.ts</td><td class="num">4,321</td><td><code>AgentSession</code></td></tr>
+              <tr><td class="path">src/core/agent-session-runtime.ts</td><td class="num">447</td><td>Session replacement for /new, /resume, /fork</td></tr>
+              <tr><td class="path">src/core/sdk.ts</td><td class="num">462</td><td><code>createAgentSession()</code>: wires Agent, ModelRuntime and extensions together</td></tr>
+              <tr><td class="path">src/core/model-runtime.ts</td><td class="num">1,032</td><td>pi-ai <code>Models</code> plus auth.json, models.json and extension providers</td></tr>
+              <tr><td class="path">src/core/settings-manager.ts</td><td class="num">1,530</td><td>Global and project settings</td></tr>
+              <tr><td class="path">src/core/resource-loader.ts</td><td class="num">1,275</td><td>Finds extensions, skills, prompts, themes and context files</td></tr>
+              <tr><td class="path">src/core/tools/</td><td class="num"></td><td>Built-in tools and their TUI renderers</td></tr>
+              <tr><td class="path">src/modes/</td><td class="num"></td><td>Interactive (<code>interactive-mode.ts</code>, 6,904 lines, the largest file), print, RPC</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 7 -->
+      <section id="sessions" class="prose">
+        <h2><span class="num">§7</span>Sessions: a tree in a JSONL file</h2>
+        <p>Sessions are stored at <code>~/.pi/agent/sessions/--&lt;path&gt;--/&lt;timestamp&gt;_&lt;id&gt;.jsonl</code>. The first line is a header. Every other line is an entry with an <code>id</code> and a <code>parentId</code>, so the entries form a tree. The <em>leaf</em> is the entry you are on now, and the path from the root to the leaf is the <em>active branch</em>.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 300" role="img" aria-label="Session tree: entries e1 to e5 on a shared path, an abandoned branch e6 to e7, and an active branch e8 branch summary, e9 user, e10 compaction pointing back to e4, e11 user at the leaf. Below, the next request contains a system checkpoint, the summary of e1 to e3, then e4, e5, e8, e9 and e11.">
+              <defs>
+                <marker id="m6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk-m"/></marker>
+              </defs>
+              <text class="t-s" x="12" y="18">one .jsonl file · each line stores its parentId</text>
+              <text class="t-s" x="532" y="24">abandoned branch, still on disk</text>
+              <path class="ln-m" d="M100 56 H112 M200 56 H212 M300 56 H312 M400 56 H412 M500 56 H532 M620 56 H632 M500 56 H516 V152 H532 M620 152 H632 M720 152 H732 M820 152 H832"/>
+              <g style="font-size:11.5px">
+                <rect class="faded" x="12" y="34" width="88" height="44" rx="6"/><text class="t-b faded-t" x="22" y="52">e1</text><text class="t-s" x="22" y="68">user</text>
+                <rect class="faded" x="112" y="34" width="88" height="44" rx="6"/><text class="t-b faded-t" x="122" y="52">e2</text><text class="t-s" x="122" y="68">assistant</text>
+                <rect class="faded" x="212" y="34" width="88" height="44" rx="6"/><text class="t-b faded-t" x="222" y="52">e3</text><text class="t-s" x="222" y="68">toolResult</text>
+                <rect class="bx" x="312" y="34" width="88" height="44" rx="6"/><text class="t-b" x="322" y="52">e4</text><text class="t-s" x="322" y="68">user</text>
+                <rect class="bx" x="412" y="34" width="88" height="44" rx="6"/><text class="t-b" x="422" y="52">e5</text><text class="t-s" x="422" y="68">assistant</text>
+                <rect class="faded" x="532" y="34" width="88" height="44" rx="6"/><text class="t-b faded-t" x="542" y="52">e6</text><text class="t-s" x="542" y="68">user</text>
+                <rect class="faded" x="632" y="34" width="88" height="44" rx="6"/><text class="t-b faded-t" x="642" y="52">e7</text><text class="t-s" x="642" y="68">assistant</text>
+                <g class="k-coding">
+                  <rect class="pk" x="532" y="130" width="88" height="44" rx="6"/><text class="pk-name" x="542" y="148">e8</text><text class="t-s" x="542" y="164" style="font-size:9.5px">branch_summary</text>
+                </g>
+                <rect class="bx" x="632" y="130" width="88" height="44" rx="6"/><text class="t-b" x="642" y="148">e9</text><text class="t-s" x="642" y="164">user</text>
+                <g class="k-coding">
+                  <rect class="pk" x="732" y="130" width="88" height="44" rx="6"/><text class="pk-name" x="742" y="148">e10</text><text class="t-s" x="742" y="164">compaction</text>
+                </g>
+                <rect class="bx" x="832" y="130" width="88" height="44" rx="6" style="stroke-width:2.2"/><text class="t-b" x="842" y="148">e11</text><text class="t-s" x="842" y="164">user</text>
+              </g>
+              <text class="t-b" x="876" y="120" text-anchor="middle" style="font-size:11px">leaf ▼</text>
+              <text class="t-s" x="12" y="96">summarized by e10</text>
+              <path class="ln-m dot" d="M598 130 L646 82" marker-end="url(#m6)"/><text class="t-s halo" x="616" y="116" text-anchor="start">fromId</text>
+              <path class="ln-m dash" d="M776 174 V198 H356 V82" marker-end="url(#m6)"/><text class="t-s halo" x="560" y="194" text-anchor="middle">firstKeptEntryId</text>
+              <text class="t-cap" x="12" y="236">NEXT REQUEST = PROJECTION OF THE ACTIVE PATH</text>
+              <g style="font-size:11px">
+                <g class="k-coding"><rect class="pk" x="12" y="248" width="118" height="34" rx="5"/><text x="71" y="269" text-anchor="middle">system ckpt</text>
+                <rect class="pk" x="138" y="248" width="118" height="34" rx="5"/><text x="197" y="269" text-anchor="middle">summary e1–e3</text></g>
+                <rect class="bx" x="264" y="248" width="118" height="34" rx="5"/><text x="323" y="269" text-anchor="middle">e4 user</text>
+                <rect class="bx" x="390" y="248" width="118" height="34" rx="5"/><text x="449" y="269" text-anchor="middle">e5 assistant</text>
+                <rect class="bx" x="516" y="248" width="118" height="34" rx="5"/><text x="575" y="269" text-anchor="middle">e8 summary</text>
+                <rect class="bx" x="642" y="248" width="118" height="34" rx="5"/><text x="701" y="269" text-anchor="middle">e9 user</text>
+                <rect class="bx" x="768" y="248" width="118" height="34" rx="5"/><text x="827" y="269" text-anchor="middle">e11 user</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption><b>Branching and compaction without deleting anything.</b> The user went back to e5 and tried something else. Pi summarized the abandoned path (e6–e7) into <code>e8</code>. Later, compaction <code>e10</code> summarized e1–e3 and kept everything from <code>e4</code> on. Grey entries stay in the file but are left out of the next request.</figcaption>
+        </figure>
+        <p>An abbreviated session file looks like this:</p>
+<pre><code>{"type":"session","version":3,"id":"…","cwd":"/project"}
+{"type":"message","id":"a1b2c3d4","parentId":null,"message":{"role":"user","content":"Hello"}}
+{"type":"message","id":"b2c3d4e5","parentId":"a1b2c3d4","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}],"provider":"anthropic","model":"claude-sonnet-4-5",…}}
+{"type":"model_change","id":"c3d4e5f6","parentId":"b2c3d4e5","provider":"openai","modelId":"gpt-4o"}
+{"type":"compaction","id":"d4e5f6a7","parentId":"c3d4e5f6","summary":"User discussed X…","firstKeptEntryId":"b2c3d4e5","tokensBefore":50000}</code></pre>
+        <div class="split">
+          <div>
+            <h4>Shapes the model context</h4>
+            <ul>
+              <li><code>message</code> · one AgentMessage</li>
+              <li><code>compaction</code> · summary plus prompt checkpoint</li>
+              <li><code>branch_summary</code> · what an abandoned branch tried</li>
+              <li><code>custom_message</code> · extension-injected content</li>
+              <li><code>context_edit</code> · hides or rewrites an earlier entry</li>
+            </ul>
+          </div>
+          <div>
+            <h4>Metadata only</h4>
+            <ul>
+              <li><code>model_change</code>, <code>thinking_level_change</code></li>
+              <li><code>usage</code> · cost of side work such as cache warming</li>
+              <li><code>custom</code> · extension state</li>
+              <li><code>label</code> · a bookmark on an entry</li>
+              <li><code>session_info</code> · the session's display name</li>
+            </ul>
+          </div>
+        </div>
+        <h3>How the next request is built</h3>
+        <ol class="steps">
+          <li><div><code>buildContextEntries()</code> walks from the leaf to the root. If a compaction is on the path, it keeps the latest one, the entries from its <code>firstKeptEntryId</code> onward, and everything after it.</div></li>
+          <li><div><code>buildSessionProjection()</code> applies <code>context_edit</code> entries, which omit or replace an earlier message for future requests only.</div></li>
+          <li><div><code>buildSessionContext()</code> turns the entries into messages and reads the current model and thinking level from the path.</div></li>
+        </ol>
+        <p><strong>Compaction</strong> runs automatically when <code>contextTokens &gt; contextWindow − reserveTokens</code>, with <code>reserveTokens</code> defaulting to 16,384. Pi keeps roughly the newest <code>keepRecentTokens</code> (default 20,000) and asks the model to summarize everything older. The original entries stay in the file.</p>
+        <div class="why k-coding">
+          <ul>
+            <li><strong>Append-only writes</strong> are cheap and survive crashes. A run that dies halfway loses at most the line being written.</li>
+            <li><strong>Branching needs no copies.</strong> <code>/tree</code> moves the leaf, the abandoned path stays in the file, and a <code>branch_summary</code> tells the new branch what was already tried.</li>
+            <li><strong>Context is a view over history.</strong> Compaction and context edits change what the model sees next without destroying anything, so exports, the UI and cost totals still see the full record.</li>
+            <li><strong>JSONL is easy to inspect</strong> with <code>grep</code>, <code>jq</code> or a ten-line script. Older formats (v1 linear, v2 tree) migrate to v3 when loaded.</li>
+          </ul>
+        </div>
+        <p class="label">Where it lives</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Path (packages/coding-agent/…)</th><th class="num">Lines</th><th>What it holds</th></tr></thead>
+            <tbody>
+              <tr><td class="path">src/core/session-manager.ts</td><td class="num">2,013</td><td>Entry types, the tree, context building</td></tr>
+              <tr><td class="path">src/core/compaction/compaction.ts</td><td class="num">1,119</td><td>Cut-point selection and summary generation</td></tr>
+              <tr><td class="path">src/core/compaction/branch-summarization.ts</td><td class="num">382</td><td>Summaries of abandoned branches</td></tr>
+              <tr><td class="path">src/core/messages.ts</td><td class="num">196</td><td>Custom AgentMessage roles added through declaration merging</td></tr>
+              <tr><td class="path">docs/session-format.md</td><td class="num"></td><td>The authoritative format reference</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 8 -->
+      <section id="extensions" class="prose">
+        <h2><span class="num">§8</span>Extensions, resources and trust</h2>
+        <p>An extension is a TypeScript module whose default export receives <code>pi: ExtensionAPI</code>. It can register tools, slash commands, shortcuts, CLI flags, model providers, MCP servers, renderers and UI. It can also subscribe to lifecycle events with <code>pi.on()</code>. Here is a trimmed version of <code>examples/extensions/permission-gate.ts</code>:</p>
+<pre><code>import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.on("tool_call", async (event, ctx) =&gt; {
+    if (event.toolName !== "bash") return undefined;
+    const command = event.input.command as string;
+    if (/\bsudo\b/.test(command) &amp;&amp; !(await ctx.ui.confirm("Allow sudo?", command))) {
+      return { block: true, reason: "Blocked by user" };   <span class="cm">// the model sees this as a tool error</span>
+    }
+  });
+}</code></pre>
+        <h3>Where extensions can step in during a run</h3>
+        <ol class="hooks">
+          <li class="phase">Input</li>
+          <li class="change"><div class="hk"><code>input</code><span class="badge">can change</span></div><p>Continue, transform the submitted text, or mark it handled.</p></li>
+          <li class="change"><div class="hk"><code>before_agent_start</code><span class="badge">can change</span></div><p>Adjust prompt sections, tools or guidelines for this run, or replace the whole prompt.</p></li>
+          <li class="phase">Building the request</li>
+          <li class="change"><div class="hk"><code>context</code> · <code>context_with_system</code><span class="badge">can change</span></div><p>Rewrite the message list sent to the model. Nothing is persisted.</p></li>
+          <li class="change"><div class="hk"><code>before_provider_headers</code> · <code>before_provider_request</code><span class="badge">can change</span></div><p>Edit HTTP headers or the raw provider payload.</p></li>
+          <li class="phase">Streaming</li>
+          <li><div class="hk"><code>provider_stream_event</code><span class="badge">observe</span></div><p>See each parsed vendor event before normalization.</p></li>
+          <li class="change"><div class="hk"><code>message_update</code> · <code>message_end</code><span class="badge">end can change</span></div><p>Watch streaming. <code>message_end</code> can replace the finished message.</p></li>
+          <li class="phase">Tools</li>
+          <li class="change"><div class="hk"><code>tool_call</code><span class="badge">can block</span></div><p>Mutate arguments or block the call. A handler that throws also blocks, as a fail-safe.</p></li>
+          <li class="change"><div class="hk"><code>tool_result</code><span class="badge">can change</span></div><p>Rewrite the result. Handlers compose in load order.</p></li>
+          <li class="phase">End of turn and run</li>
+          <li class="change"><div class="hk"><code>turn_end</code><span class="badge">can continue</span></div><p>Append entries and request one more model call.</p></li>
+          <li class="change"><div class="hk"><code>agent_before_settle</code><span class="badge">can continue</span></div><p>The last point where an extension can append entries or keep the run going.</p></li>
+          <li><div class="hk"><code>agent_settled</code><span class="badge">observe</span></div><p>Pi will not continue on its own after this.</p></li>
+        </ol>
+        <p>Session events (<code>session_start</code>, <code>session_shutdown</code>, <code>session_compact</code>, <code>session_tree</code> and others) bracket all of this. <code>src/core/extensions/types.ts</code> declares every event with its exact result type.</p>
+        <h3>Loading</h3>
+        <p>Extensions load from <code>~/.pi/agent/extensions/</code>, from <code>.pi/extensions/</code> in a trusted project, from Pi packages, or from <code>--extension &lt;path&gt;</code>. Pi compiles TypeScript on the fly with <code>jiti</code>, so there is no build step. Imports of <code>@earendil-works/pi-*</code> (and the legacy <code>@mariozechner/pi-*</code> scope) are aliased to the copies already running, so an extension and Pi share one instance of every class and type.</p>
+        <p>Pi uses its own extension API for several built-in features. <code>src/extensions/</code> holds MCP support, <code>codemode</code>, <code>tool_search</code> and llama.cpp, registered as built-in extensions. The first three are marked <em>replaceable</em>: a third-party extension that registers the same tool or command takes over.</p>
+        <h3>Resources</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Resource</th><th>Location</th><th>How the model receives it</th></tr></thead>
+            <tbody>
+              <tr><td>Context files</td><td class="path">AGENTS.md · CLAUDE.md</td><td>Included in the system prompt</td></tr>
+              <tr><td>Prompt override</td><td class="path">SYSTEM.md · APPEND_SYSTEM.md</td><td>Replaces or extends the default prompt</td></tr>
+              <tr><td>Skills</td><td class="path">skills/</td><td>Names and descriptions in the prompt; full instructions loaded on demand</td></tr>
+              <tr><td>Prompt templates</td><td class="path">prompts/</td><td>Reusable text exposed as slash commands</td></tr>
+              <tr><td>Themes</td><td class="path">themes/</td><td>Terminal colours only</td></tr>
+              <tr><td>Pi packages</td><td class="path">pi install &lt;npm|git&gt;</td><td>Bundles of all of the above</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Each lives in two places: <code>~/.pi/agent/</code> for you, and <code>.pi/</code> inside a project.</p>
+        <p><strong>Project trust.</strong> Before loading <code>.pi/settings.json</code>, <code>.pi/mcp.json</code>, project extensions and other protected project resources, Pi asks whether you trust the folder, because extensions run code. Trust controls loading only. Tools still run with your account's permissions, and the docs recommend a container or VM for real isolation (<code>docs/containerization.md</code>).</p>
+        <div class="why k-coding">
+          <p>Pi describes itself as self-extensible. The core stays small, and the agent can write extensions for you. Plan mode, sub-agents, permission prompts, sandboxing and git checkpoints exist as extension examples (79 entries in <code>examples/extensions/</code>) and stay out of the core. The cost is power: an extension can read prompts, files and credentials, and nothing inside the process sandboxes it.</p>
+        </div>
+        <p class="label">Where it lives</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Path (packages/coding-agent/…)</th><th class="num">Lines</th><th>What it holds</th></tr></thead>
+            <tbody>
+              <tr><td class="path">src/core/extensions/types.ts</td><td class="num">2,245</td><td><code>ExtensionAPI</code> and every event and result type</td></tr>
+              <tr><td class="path">src/core/extensions/runner.ts</td><td class="num">1,551</td><td>Dispatches events to handlers in load order</td></tr>
+              <tr><td class="path">src/core/extensions/loader.ts</td><td class="num">869</td><td>jiti loading and module aliases</td></tr>
+              <tr><td class="path">src/extensions/</td><td class="num"></td><td>Built-in extensions: mcp, codemode, tool-search, llama</td></tr>
+              <tr><td class="path">src/core/package-manager.ts</td><td class="num">2,760</td><td>Installs Pi packages from npm or git</td></tr>
+              <tr><td class="path">src/core/project-trust.ts</td><td class="num">96</td><td>Which project resources require trust</td></tr>
+              <tr><td class="path">examples/extensions/</td><td class="num">79</td><td>Working examples to copy from</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 9 -->
+      <section id="tui" class="prose">
+        <h2><span class="num">§9</span>Differential rendering <span class="pkg k-tui">packages/tui</span></h2>
+        <p>pi-tui is a small terminal UI framework with no dependencies on the rest of Pi. A component implements <code>render(width): string[]</code>, which returns one string per terminal line, and optionally <code>handleInput(data)</code>. Containers stack their children, and the renderer decides what to repaint.</p>
+        <figure>
+          <div class="figwrap">
+            <svg class="d" viewBox="0 0 960 300" role="img" aria-label="Differential rendering: the previous and next frames share rows 1 to 5; rows 6 to 8 changed, so the renderer moves the cursor to row 6, clears to the end and writes only rows 6 to 8 inside a synchronized-output block.">
+              <defs><marker id="m8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk"/></marker></defs>
+              <text class="t-cap" x="16" y="28">PREVIOUS FRAME</text>
+              <text class="t-cap" x="340" y="28">NEXT FRAME (A FEW MORE TOKENS)</text>
+              <text class="t-cap" x="664" y="28">BYTES WRITTEN FOR THIS FRAME</text>
+              <rect class="term" x="16" y="40" width="300" height="220" rx="8"/>
+              <rect class="term" x="340" y="40" width="300" height="220" rx="8"/>
+              <rect class="hl" x="344" y="176" width="292" height="72" rx="3"/>
+              <g>
+                <text class="term-n" x="30" y="72">1</text><text class="term-t" x="50" y="72">› fix the failing test</text>
+                <text class="term-n" x="30" y="96">2</text><text class="term-t" x="50" y="96">✓ read src/parser.ts</text>
+                <text class="term-n" x="30" y="120">3</text><text class="term-t" x="50" y="120">✓ bash npm test</text>
+                <text class="term-n" x="30" y="144">4</text><text class="term-t" x="50" y="144">The parser drops the</text>
+                <text class="term-n" x="30" y="168">5</text><text class="term-t" x="50" y="168">trailing comma when</text>
+                <text class="term-n" x="30" y="192">6</text><text class="term-t" x="50" y="192">────────────────────</text>
+                <text class="term-n" x="30" y="216">7</text><text class="term-t" x="50" y="216">› ▌</text>
+              </g>
+              <g>
+                <text class="term-n" x="354" y="72">1</text><text class="term-t" x="374" y="72">› fix the failing test</text>
+                <text class="term-n" x="354" y="96">2</text><text class="term-t" x="374" y="96">✓ read src/parser.ts</text>
+                <text class="term-n" x="354" y="120">3</text><text class="term-t" x="374" y="120">✓ bash npm test</text>
+                <text class="term-n" x="354" y="144">4</text><text class="term-t" x="374" y="144">The parser drops the</text>
+                <text class="term-n" x="354" y="168">5</text><text class="term-t" x="374" y="168">trailing comma when</text>
+                <text class="term-n" x="354" y="192">6</text><text class="term-t" x="374" y="192">it sees a nested list.</text>
+                <text class="term-n" x="354" y="216">7</text><text class="term-t" x="374" y="216">────────────────────</text>
+                <text class="term-n" x="354" y="240">8</text><text class="term-t" x="374" y="240">› ▌</text>
+              </g>
+              <rect class="bx" x="664" y="40" width="280" height="220" rx="8"/>
+              <g style="font-size:11.5px">
+                <text x="680" y="72"><tspan class="t-b">ESC[?2026h</tspan><tspan class="t-s" dx="8">begin sync</tspan></text>
+                <text x="680" y="100">move cursor to row 6</text>
+                <text x="680" y="128">clear to end of screen</text>
+                <text x="680" y="156">write rows 6–8</text>
+                <text x="680" y="184"><tspan class="t-b">ESC[?2026l</tspan><tspan class="t-s" dx="8">end sync</tspan></text>
+                <text class="t-s" x="680" y="236">rows 1–5 are never rewritten</text>
+              </g>
+              <path class="ln" d="M640 150 H660" marker-end="url(#m8)"/>
+              <text class="t-s" x="328" y="286" text-anchor="middle">compare line by line: first changed row = 6</text>
+            </svg>
+          </div>
+          <figcaption><b>What one streaming update costs.</b> <code>TuiMainScreen</code> keeps the previous frame's lines, finds the first line that differs and rewrites from there down. The synchronized-output escape (CSI ?2026) makes the terminal show the whole update at once, so there is no flicker.</figcaption>
+        </figure>
+        <p>Two renderers implement the same <code>TUI</code> interface. <code>TuiMainScreen</code>, the default <code>regular</code> mode, writes into the normal terminal buffer, so your scrollback survives. <code>TuiAltScreen</code> (<code>--tui-mode fullscreen</code>) owns an alternate-screen viewport with its own scrolling, mouse support and text selection.</p>
+        <p>The main-screen renderer has three strategies. The first render prints everything. A width change, or a change above the visible viewport, forces a full redraw. Every other update rewrites from the first changed line. <code>requestRender()</code> coalesces calls through <code>process.nextTick</code> and keeps at least 16 ms between frames.</p>
+        <div class="why k-tui">
+          <p>A streaming reply triggers many updates per second. Repainting the whole screen each time flickers and wipes scrollback. Diffing plain strings is cheap, and components that return strings are easy to test: <code>packages/tui/test/virtual-terminal.ts</code> renders into a fake terminal.</p>
+        </div>
+        <p class="label">Where it lives</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Path</th><th class="num">Lines</th><th>What it holds</th></tr></thead>
+            <tbody>
+              <tr><td class="path">tui/src/tui.ts</td><td class="num">1,493</td><td><code>TUI</code> interface, focus, overlays, render scheduling</td></tr>
+              <tr><td class="path">tui/src/tui-main-screen.ts</td><td class="num">655</td><td>Line-diff renderer for the normal buffer</td></tr>
+              <tr><td class="path">tui/src/tui-alt-screen.ts</td><td class="num">1,750</td><td>Viewport renderer for fullscreen mode</td></tr>
+              <tr><td class="path">tui/src/components/editor.ts</td><td class="num">2,472</td><td>The multi-line prompt editor</td></tr>
+              <tr><td class="path">tui/src/components/markdown.ts</td><td class="num">1,021</td><td>Markdown rendering for replies</td></tr>
+              <tr><td class="path">tui/src/keys.ts</td><td class="num">1,401</td><td>Key parsing, including the Kitty keyboard protocol</td></tr>
+              <tr><td class="path">coding-agent/src/modes/interactive/</td><td class="num"></td><td>Pi's own screens, selectors and message views built from these components</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 10 -->
+      <section id="around" class="prose">
+        <h2><span class="num">§10</span>Around the core</h2>
+        <p>The remaining packages either support the four core packages or explore where Pi is heading. You can ignore the experimental ones while you learn the CLI.</p>
+        <div class="around">
+          <div class="mod k-ai"><h4>chord <span>8,808</span></h4><p>Application-composition runtime. Plugins split into <em>facets</em> that run in different processes, with typed services, replicated state and RPC. It has no Pi dependencies. pi-agent-core, pi-coding-agent and the experimental packages depend on it.</p></div>
+          <div class="mod k-ai"><h4>pi-telemetry <span>935</span></h4><p>Vendor-neutral span and event contracts with a no-op default and an in-memory reference implementation. Packages pass a <code>TelemetryContext</code> explicitly, with no global state.</p></div>
+          <div class="mod k-ai"><h4>pi-mcp <span>3,057</span></h4><p>A small Model Context Protocol client (stdio and Streamable HTTP) that does not depend on the official MCP SDK. The built-in MCP extension uses it.</p></div>
+          <div class="mod k-ai"><h4>pi-codemode <span>1,600</span></h4><p>Runs model-written JavaScript in a QuickJS WebAssembly VM whose only capability is calling injected tools. Nested tool calls stay out of the model's context.</p></div>
+          <div class="mod k-exp"><h4>pi-durable <span>17,377 · experimental</span></h4><p>A durable agent runtime that commits turns and tool calls to storage before showing them, so a crashed process resumes where it stopped. No other package uses it yet.</p></div>
+          <div class="mod k-exp"><h4>protocol · client · server <span>869 · 1,135 · 1,966</span></h4><p>Length-prefixed CBOR frames, a transport-neutral client and a local server that routes calls to session workers. With <code>coding-agent/src/experimental/</code> they explore running a session in its own process with several UIs attached.</p></div>
+          <div class="mod k-exp"><h4>sqlite backend <span>1,973</span></h4><p>SQLite storage for harness sessions. It is a separate package so pi-agent-core does not pull in native SQLite.</p></div>
+          <div class="mod k-exp"><h4>pi-evals <span>1,446</span></h4><p>Behavioral evals built on vitest-evals, including "documentation lift" runs that compare Pi with and without its docs inside Docker.</p></div>
+        </div>
+      </section>
+
+      <!-- 11 -->
+      <section id="decisions" class="prose">
+        <h2><span class="num">§11</span>Design decisions and trade-offs</h2>
+        <p>Here are the choices that shape the codebase, with what each one buys and what it costs.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Decision</th><th>Problem it solves</th><th>What it costs</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Separate packages, downward-only dependencies</strong></td><td>pi-ai and pi-agent-core are reused by the SDK, browser apps and other projects such as pi-chat. Each layer is tested alone.</td><td>14 package folders to build in order and version in lockstep.</td></tr>
+              <tr><td><strong>Normalized event streams at every layer</strong></td><td>One UI-agnostic core powers four front-ends. Extensions and persistence are just more listeners.</td><td>Event shapes become a public contract for RPC and JSON consumers.</td></tr>
+              <tr><td><strong>Append-only JSONL tree for sessions</strong></td><td>Crash safety, cheap branching, full history for exports and cost totals.</td><td>Context must be recomputed as a projection, and files only grow.</td></tr>
+              <tr><td><strong>In-process TypeScript extensions, with built-ins as extensions</strong></td><td>Small core, fast iteration, deep customization without forking.</td><td>No sandbox. Project extensions need a trust prompt.</td></tr>
+              <tr><td><strong>No built-in permission system</strong></td><td>Avoids a false sense of safety. The OS or container is the real boundary.</td><td>Users who need isolation must set up a container or VM.</td></tr>
+              <tr><td><strong>Lazy provider SDKs and a generated catalog</strong></td><td>Fast startup and small bundles. Metadata for 42 providers without hand maintenance.</td><td>A normal build fetches catalog data over the network (<code>build:offline</code> skips it).</td></tr>
+              <tr><td><strong>Prompt and tools carried inside the transcript</strong></td><td>Mid-session changes stay cache-friendly and replayable.</td><td>Provider adapters must handle system messages mid-conversation.</td></tr>
+              <tr><td><strong>Erasable-only TypeScript, run with plain Node</strong></td><td>Sources run without a build step (TypeScript 7 plus Node's type stripping).</td><td>No <code>enum</code>, <code>namespace</code> or constructor parameter properties.</td></tr>
+              <tr><td><strong>Pinned dependencies, shrinkwrap, <code>--ignore-scripts</code></strong></td><td>Supply-chain safety for a tool that runs with your permissions.</td><td>Upgrades are deliberate, manual reviews.</td></tr>
+              <tr><td><strong>Faux provider and test harness</strong></td><td>Deterministic tests with no API keys or paid tokens.</td><td>The fake can drift from real vendor behavior, so e2e tests exist separately.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 12 -->
+      <section id="where" class="prose">
+        <h2><span class="num">§12</span>Where to look</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>If you want to…</th><th>Start in</th></tr></thead>
+            <tbody>
+              <tr><td>Add or fix an LLM provider</td><td class="path"><span class="pkg k-ai">ai</span> src/providers/&lt;id&gt;.ts · scripts/generate-models.ts</td></tr>
+              <tr><td>Fix how a vendor's stream is parsed</td><td class="path"><span class="pkg k-ai">ai</span> src/api/&lt;api&gt;.ts</td></tr>
+              <tr><td>Change the turn and tool loop</td><td class="path"><span class="pkg k-agent">agent</span> src/agent-loop.ts · src/agent.ts</td></tr>
+              <tr><td>Change retries, compaction triggers or persistence</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/agent-session.ts</td></tr>
+              <tr><td>Change the session format or branching</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/session-manager.ts</td></tr>
+              <tr><td>Change how summaries are made</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/compaction/</td></tr>
+              <tr><td>Fix a built-in tool or how it renders</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/tools/ · tools/renderers/</td></tr>
+              <tr><td>Edit the system prompt</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/system-prompt.ts</td></tr>
+              <tr><td>Extend the extension API</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/extensions/types.ts · runner.ts</td></tr>
+              <tr><td>Add a CLI flag</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/cli/args.ts · src/main.ts</td></tr>
+              <tr><td>Change the interactive UI</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/modes/interactive/</td></tr>
+              <tr><td>Change the RPC protocol</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/modes/rpc/ · docs/rpc*.md</td></tr>
+              <tr><td>Add a setting</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/settings-manager.ts</td></tr>
+              <tr><td>Add a keyboard shortcut</td><td class="path"><span class="pkg k-coding">coding-agent</span> src/core/keybindings.ts (KEYBINDINGS) · <span class="pkg k-tui">tui</span> src/keybindings.ts (TUI_KEYBINDINGS)</td></tr>
+              <tr><td>Fix flicker or a repaint bug</td><td class="path"><span class="pkg k-tui">tui</span> src/tui-main-screen.ts · src/tui-alt-screen.ts</td></tr>
+              <tr><td>Write a session-level test</td><td class="path"><span class="pkg k-coding">coding-agent</span> test/suite/harness.ts + the faux provider</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Keybindings are always added as configurable defaults and never as hard-coded key checks. <code>AGENTS.md</code> still calls these defaults <code>DEFAULT_EDITOR_KEYBINDINGS</code> and <code>DEFAULT_APP_KEYBINDINGS</code>. In the current code they are named <code>TUI_KEYBINDINGS</code> and <code>KEYBINDINGS</code>.</p>
+      </section>
+
+      <!-- 13 -->
+      <section id="glossary" class="prose">
+        <h2><span class="num">§13</span>Glossary</h2>
+        <dl class="gloss">
+          <dt>turn</dt><dd>One model reply plus the tool calls it made.</dd>
+          <dt>run</dt><dd>Everything from <code>prompt()</code> to <code>agent_end</code>: one or more turns.</dd>
+          <dt>steering message</dt><dd>Input typed while the agent works, delivered after the current turn's tools finish.</dd>
+          <dt>follow-up</dt><dd>Input queued for when the agent would otherwise stop.</dd>
+          <dt>provider</dt><dd>A vendor account or endpoint (Anthropic, Groq, OpenRouter). Owns auth and a model catalog.</dd>
+          <dt>API (wire API)</dt><dd>The HTTP protocol a provider speaks, such as <code>openai-completions</code>. Many providers share one.</dd>
+          <dt>thinking level</dt><dd>Pi's vendor-neutral reasoning effort: <code>off</code>, <code>minimal</code>, <code>low</code>, <code>medium</code>, <code>high</code>, <code>xhigh</code>, <code>max</code>. Clamped to what the model supports.</dd>
+          <dt>entry</dt><dd>One line of a session file, with an <code>id</code> and a <code>parentId</code>.</dd>
+          <dt>leaf / active branch</dt><dd>The current entry, and the path from it back to the root.</dd>
+          <dt>compaction</dt><dd>An entry that replaces older context with an LLM summary for future requests.</dd>
+          <dt>context edit</dt><dd>An entry that hides or rewrites an earlier message for future requests only.</dd>
+          <dt>extension</dt><dd>A TypeScript module loaded into Pi that registers tools, commands, hooks or UI.</dd>
+          <dt>skill</dt><dd>On-demand instructions plus supporting files. Only the name and description sit in the prompt.</dd>
+          <dt>prompt template</dt><dd>Reusable message text exposed as a slash command.</dd>
+          <dt>Pi package</dt><dd>A bundle of extensions, skills, prompts and themes installed from npm or git.</dd>
+          <dt>project trust</dt><dd>Your decision to let a folder's <code>.pi/</code> resources load.</dd>
+          <dt>facet / service</dt><dd>Chord's units: part of a plugin that runs in one process, and a typed token that facets provide or require.</dd>
+          <dt>lane</dt><dd>A unit of work in the newer durable <code>AgentHarness</code>, used only by experimental code today.</dd>
+        </dl>
+      </section>
+
+      <!-- 14 -->
+      <section id="repo" class="prose">
+        <h2><span class="num">§14</span>Working in the repo</h2>
+        <ul class="cmds">
+          <li><code>npm install --ignore-scripts</code><span>Install dependencies without running lifecycle scripts.</span></li>
+          <li><code>./pi-test.sh</code><span>Run <code>pi</code> straight from source. Node loads the TypeScript through a resolver hook, so nothing is built first.</span></li>
+          <li><code>npm run check</code><span>Biome lint and format, type checking, dependency and import checks. Run it after code changes.</span></li>
+          <li><code>./test.sh</code><span>All non-e2e tests. Avoid running the full vitest suite directly, because e2e tests switch on when API keys are present.</span></li>
+        </ul>
+        <p><code>AGENTS.md</code> at the repo root holds the house rules for humans and agents alike: erasable TypeScript only, top-level imports only, exact-pinned dependencies, changelog entries under <code>## [Unreleased]</code>, and session tests through <code>test/suite/harness.ts</code> with the faux provider.</p>
+        <p>The user-facing docs in <code>packages/coding-agent/docs/</code> (39 files) are the best next read. Start with <code>how-pi-works.md</code>, <code>extensions.md</code> and <code>session-format.md</code>.</p>
+      </section>
+
+      <footer>Written from the source at walkthru @ 955cc6665 on 2026-10-03. Line counts are <code>wc -l</code> over the .ts files in each package's src/ folder.</footer>
+    </main>
+  </div>
+</div>
